@@ -1,8 +1,8 @@
 # Park4night API
 
-A TypeScript client and JSON CLI for planning trips with Park4night. Search nearby places, read reviews, and manage saved places and folders through direct HTTP requests.
+A TypeScript client, JSON CLI, and local read-only MCP server for planning trips with Park4night. Search nearby places, read reviews, and manage saved places and folders through direct HTTP requests.
 
-Authentication uses the native app's password protocol. No browser, browser session, or reCAPTCHA token is needed. The client has no runtime dependencies and includes request pacing and bounded retries.
+Authentication uses the native app's password protocol. No browser, browser session, or reCAPTCHA token is needed. The client includes runtime input validation, request pacing, cancellation, and bounded retries. The MCP server uses the official TypeScript SDK.
 
 **Unofficial integration.** Park4night can change its native API without notice. This project is a local client library and CLI, not a hosted HTTP service or a complete implementation of every Park4night feature.
 
@@ -15,12 +15,21 @@ git clone https://github.com/marijnbent/park4night-api.git
 cd park4night-api
 npm ci
 
-node src/cli.ts place 275051
-node src/cli.ts reviews 275051
-node src/cli.ts search 52.37 4.9 20
+node dist/cli.js place 275051
+node dist/cli.js reviews 275051
+node dist/cli.js search 52.37 4.9 20
 ```
 
-These commands use public reads and do not require credentials. Output is JSON. Use `node src/cli.ts help` for all commands.
+`npm ci` builds the JavaScript and declaration files. These commands use public reads and do not require credentials. Output is JSON. Use `node src/cli.ts help` for all commands.
+
+To install the client into another Node.js project directly from GitHub:
+
+```sh
+npm install github:marijnbent/park4night-api
+npx park4night --help
+```
+
+The installed package exports compiled JavaScript and TypeScript declarations. It is not published to the npm registry. Source development still works with `node src/cli.ts`.
 
 For authenticated commands, inject `PARK4NIGHT_USERNAME` and `PARK4NIGHT_PASSWORD` into the process environment through your secret manager:
 
@@ -42,14 +51,22 @@ node src/cli.ts --vault folders
 node src/cli.ts --vault bookmarks
 ```
 
-The item must have `username` and `password` fields. The adapter calls the standard `op` command and captures its output in memory. Configure CLI access before use, or use environment-based login instead. No personal item IDs, credentials, or session values are stored in this repository.
+The defaults are vault `Agent`, item `park4night.com`, and fields `username` and `password`. Configure other names without adding environment variables:
+
+```sh
+node dist/cli.js --vault --vault-name Travel --item 'My travel login' --username-field email --password-field password folders
+```
+
+Field selectors accept an exact field ID or a unique field label. `--op-command /path/to/helper` selects a trusted wrapper instead of `op`. The library exposes the same settings through `readLogin({ vault, item, usernameField, passwordField, command })` from `park4night-api/vault`.
+
+The item must contain both selected credential fields. The adapter calls the standard `op` command and captures its output in memory. Configure CLI access before use, or use environment-based login instead. No personal item IDs, credentials, or session values are stored in this repository.
 
 ## Use the client
 
-Save this as `example.ts` in the project root and run `node example.ts` after injecting the credentials:
+Save this as `example.mjs` in a cloned project and run `node example.mjs` after injecting the credentials. In another project, import from `park4night-api` instead:
 
 ```ts
-import { Park4nightClient } from './src/client.ts';
+import { Park4nightClient } from './dist/client.js';
 
 const client = new Park4nightClient({ language: 'en' });
 
@@ -72,7 +89,7 @@ console.log({ nearby, folders, savedPlaces });
 client.logout();
 ```
 
-Supported languages are `en`, `nl`, `fr`, `de`, `es`, and `it`. Login returns the account ID, username, email, subscription dates, and a derived `isPremium` flag. The password and hash are excluded from that result. `logout()` clears the client's authentication state; it does not change the account password.
+Supported languages are `en`, `nl`, `fr`, `de`, `es`, and `it`. Login returns the account ID, username, email, subscription dates, and a derived `isPremium` flag. The password and hash are excluded from that result. `logout()` clears authentication, invalidates pending logins, and cancels queued and active authenticated requests. Starting a new login also cancels the previous authentication generation. A write already sent to the server may still take effect.
 
 Reuse one client for a batch of requests so its queue and cooldown apply to the whole batch.
 
@@ -99,11 +116,13 @@ This example creates a folder and saves a place. Folder names need not be unique
 | `me()` | `Account` | Required |
 | `search({ lat, lng, maxDistanceKm?, filter? })` | `SearchResult` | Optional |
 | `place(id)` | `Place` | Optional |
-| `reviews(id)` | Native review records | Optional |
+| `reviews(id)` | `Review[]` | Optional |
 | `filters(kind)` | Filter metadata | No |
 | `folders()` | `Folder[]` | Required |
 | `bookmarks(folderId = 0)` | `Place[]` | Required |
 | `myPlaces(kind)` | `Place[]` | Required |
+| `publicPlaces({ kind, username })` | Created or visited `Place[]` | No |
+| `publicPlaces({ kind: 'commented', userId })` | Commented `Place[]` | No |
 | `createFolder(name, icon)` | Updated `Folder[]` | Required |
 | `updateFolder({ id, name, icon })` | Updated `Folder[]` | Required |
 | `deleteFolder(id)` | Updated `Folder[]` | Required |
@@ -111,9 +130,9 @@ This example creates a folder and saves a place. Folder names need not be unique
 | `removeBookmark(placeId, folderId = 0)` | `void` | Required |
 | `logout()` | `void` | No network request |
 
-`myPlaces` accepts `created`, `visited`, or `commented`. `filters` accepts `type`, `custom_type`, `services`, or `activities`. Types are exported from `src/client.ts`.
+`myPlaces` accepts `created`, `visited`, or `commented`. `filters` accepts `type`, `custom_type`, `services`, or `activities`. Types are exported from the package root, including `Place`, `Review`, `Photo`, `Folder`, `SearchOptions`, and `RequestOptions`.
 
-Place records retain native fields, including descriptions, services, prices, photos, and ratings when returned. `id`, `lat`, and `lng` are normalized to numbers. Other numeric-looking native fields can remain strings.
+Place records retain native fields. `id`, `lat`, and `lng` are numbers. Added fields include `rating` and `reviewCount` (number or null), `services` (present service keys mapped to booleans), and typed `photos` with numeric IDs, `largeUrl`, and `thumbnailUrl`. Reviews have numeric `id` and `placeId`, nullable `rating`, `text`, `username`, and `createdAt`. Native numeric-looking fields can still be strings.
 
 Folder records contain `id`, `name`, `icon`, `capacity`, and `bookmarks` (place IDs). Folder `0` is the default selection. The client does not rename or delete it. `bookmarks()` reads folder `0`; it does not combine all folders. A folder can reference a place that the server no longer returns, so its ID count can exceed its available place count.
 
@@ -125,6 +144,9 @@ Account commands below use the 1Password CLI. Omit `--vault` to use injected env
 node src/cli.ts --vault me
 node src/cli.ts --vault bookmarks 123
 node src/cli.ts --vault my-places commented
+node src/cli.ts public-places created USERNAME
+node src/cli.ts public-places visited USERNAME
+node src/cli.ts public-places commented USER_ID
 node src/cli.ts --vault folder-create 'Autumn trip' '🚐'
 node src/cli.ts --vault folder-rename 123 'Winter trip'
 node src/cli.ts --vault bookmark-add 275051 123
@@ -152,7 +174,7 @@ node src/cli.ts search 52.37 4.9 20 '{"services":["wifi"],"rating":"4"}'
 | `maxHeight` | Height filter sent as a string |
 | `all_year`, `booking_filter` | `"0"` or `"1"` |
 
-Account permissions still apply to upstream filters.
+Filters are validated at runtime before sending requests. Unknown keys and incorrect value types return `INVALID_INPUT`. Rating must be a numeric string from 0 to 5; height must be a positive numeric string. Account permissions still apply to upstream filters.
 
 Search has an **observed limit of 100 results**. `maxDistanceKm` filters that returned set locally; it does not request every place inside a radius.
 
@@ -171,7 +193,8 @@ const client = new Park4nightClient({
   rateLimit: {
     minIntervalMs: 1000,
     maxRetries: 2,
-    maxWaitMs: 30000
+    maxWaitMs: 30000,
+    maxQueueSize: 100
   }
 });
 ```
@@ -181,6 +204,7 @@ const client = new Park4nightClient({
 | `minIntervalMs` | `1000` | Integer from 0 to 60,000 |
 | `maxRetries` | `2` | Integer from 0 to 5; zero disables retries |
 | `maxWaitMs` | `30000` | Integer from 0 to 60,000 |
+| `maxQueueSize` | `100` | Waiting requests, 1 to 10,000; excludes the active request |
 
 HTTP 429 responses pause later calls. The client respects `Retry-After` in seconds or HTTP-date format, as specified in [HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3). A missing or invalid header uses exponential delays starting at one second, plus 0–249 ms of random variation.
 
@@ -188,7 +212,28 @@ Reads, including login, retry within the configured limit. **Writes are never au
 
 When a cooldown exceeds `maxWaitMs`, the request fails with `RATE_LIMITED` and `retryAfterMs`. The client retains the full cooldown and does not send requests early. `maxWaitMs` limits each cooldown wait, not total command or queue time. Each sent request has a separate 20-second network timeout.
 
-These defaults are client settings, not a confirmed Park4night quota. Limits and cooldowns apply to one client instance. Separate clients, processes, and machines do not share them.
+These defaults are client settings, not a confirmed Park4night quota. Reaching the waiting-queue limit returns `QUEUE_FULL` without sending the request. Share one scheduler when several clients in the same process must use one rate limit and cooldown:
+
+```ts
+import { Park4nightClient, RequestScheduler } from 'park4night-api';
+
+const scheduler = new RequestScheduler({ minIntervalMs: 1000, maxQueueSize: 100 });
+const first = new Park4nightClient({ scheduler });
+const second = new Park4nightClient({ scheduler });
+```
+
+Do not supply both `scheduler` and `rateLimit`; configure the scheduler itself. Separate processes and machines do not share memory. The local MCP server uses one client and one queue for all its tool calls. A distributed or hosted service still needs a shared service-level limiter.
+
+All network methods accept an optional final `{ signal }` argument:
+
+```ts
+const controller = new AbortController();
+const pending = client.search({ lat: 52.37, lng: 4.9 }, { signal: controller.signal });
+controller.abort();
+try { await pending; } catch (error) { console.error(error.code); }
+```
+
+Cancellation removes queued requests immediately, interrupts cooldown waits, and aborts active HTTP calls. A cancelled write must be reconciled before retrying. Custom transports must respect the supplied abort signal.
 
 ## Error handling
 
@@ -213,6 +258,8 @@ try {
 | `UPSTREAM_ERROR` | Other HTTP or native API error |
 | `INVALID_RESPONSE` | Unexpected response format |
 | `NETWORK_ERROR` | Connection, timeout, or response-read failure |
+| `CANCELLED` | Caller cancellation, logout, or a newer login |
+| `QUEUE_FULL` | The scheduler has reached its waiting-queue limit |
 
 Errors can include HTTP `status`. Rate-limit errors include the remaining `retryAfterMs` when created. The CLI uses this form:
 
@@ -221,6 +268,40 @@ Errors can include HTTP `status`. Rate-limit errors include the remaining `retry
 ```
 
 If a write fails or times out, read the folder state before repeating it. The server may have applied the change before the connection failed.
+
+## Local MCP server
+
+The `park4night-mcp` executable speaks MCP over stdio. It exposes eight read-only tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `search_places` | Nearby places with filters and completeness flags |
+| `get_place` | Full details for one place |
+| `get_reviews` | Reviews for one place |
+| `get_filters` | Supported filter keys and codes |
+| `list_folders` | Folder summaries for the configured account |
+| `get_bookmarks` | Saved places from one folder |
+| `get_my_places` | Current account's created, visited, or commented places |
+| `get_public_user_places` | Public user activity by username or user ID |
+
+Search, bookmark, and user-place tools return compact summaries. List tools with a `limit` argument default to 20 records and allow up to 100. Responses distinguish tool-level truncation from possible upstream truncation. Place descriptions and reviews are untrusted user content, not instructions.
+
+For MCP clients that use an `mcpServers` configuration, point to your built checkout:
+
+```json
+{
+  "mcpServers": {
+    "park4night": {
+      "command": "node",
+      "args": ["/absolute/path/to/park4night-api/dist/mcp-cli.js"]
+    }
+  }
+}
+```
+
+For saved places, append `--vault` and any required 1Password options to `args`, or inject the existing `PARK4NIGHT_USERNAME` and `PARK4NIGHT_PASSWORD` variables into the server process through your client's secret mechanism. Do not store their values in a committed MCP configuration. Credentials are loaded once at startup and are never accepted as tool arguments. Without credentials, public tools work and account tools return `AUTH_REQUIRED`.
+
+The server does not expose write tools or open a network port. Its stdout carries protocol messages only; startup errors go to stderr. MCP cancellation is passed to the HTTP client. The exported `createMcpServer(client)` factory from `park4night-api/mcp` accepts an existing authenticated client.
 
 ## Authentication and credential handling
 
@@ -242,10 +323,17 @@ This uses the native login protocol. It does not solve browser CAPTCHA challenge
 npm ci
 npm run check
 npm test
+npm run test:package
 ```
 
-The test suite, covering API payloads, authentication, credential redaction, request pacing, a 25-call concurrent queue, retries, date and numeric delay values, stream failures, write protection, and CLI errors. Automated tests use simulated responses and do not require credentials or call Park4night.
+The tests cover API payloads, runtime validation, login/logout races, cancellation, queue limits, shared cooldowns, credential configuration, typed responses, public user reads, and MCP handshake and tool calls. Package tests build a tarball, install it into a clean consumer, import the compiled package, type-check declarations, run the CLI, and communicate with the installed MCP server over stdio. Automated tests use simulated responses and do not require credentials or call Park4night. The package test installs dependencies from the npm cache populated by `npm ci`. GitHub Actions runs checks and package tests on Node.js 24 and 26.
 
-Manual verification on 2026-09-27 confirmed direct login, search and filters, place details, reviews, account reads, and folder/bookmark changes. A temporary folder was created, changed, and deleted; the original folder list and saved-place IDs were unchanged. A timing check confirmed request starts 1,000 ms apart. Two temporary connection failures succeeded on one manual retry. These results do not guarantee future upstream availability.
+Version 0.2.0 verification on 2026-09-28 passed 53 unit/protocol tests and four clean-install tests. Live checks confirmed native login, normalized photos and reviews, saved-place reads, all public user-place modes, and an authenticated MCP stdio handshake and saved-place tool call. No live writes were made in this verification.
 
-The client does not implement subscription purchases, account edits, review/photo uploads, a hosted REST server, or shared rate limits across processes.
+Earlier manual verification on 2026-09-27 confirmed direct login, search and filters, place details, reviews, account reads, and folder/bookmark changes. A temporary folder was created, changed, and deleted; the original folder list and saved-place IDs were unchanged. A timing check confirmed request starts 1,000 ms apart. Two temporary connection failures succeeded on one manual retry. These results do not guarantee future upstream availability.
+
+The client does not implement subscription purchases, account edits, review/photo uploads, or a hosted REST server. Cross-process rate coordination is outside this local-client design.
+
+## License
+
+[MIT](LICENSE). This license covers the client code, not Park4night data or services.
