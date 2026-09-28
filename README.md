@@ -1,4 +1,4 @@
-# Park4night API
+# Park4night Unofficial
 
 A TypeScript client, JSON CLI, and local read-only MCP server for planning trips with Park4night. Search nearby places, read reviews, and manage saved places and folders through direct HTTP requests.
 
@@ -11,8 +11,8 @@ Authentication uses the native app's password protocol. No browser, browser sess
 Requires **Node.js 24 or newer** and npm.
 
 ```sh
-git clone https://github.com/marijnbent/park4night-api.git
-cd park4night-api
+git clone https://github.com/marijnbent/park4night-unofficial.git
+cd park4night-unofficial
 npm ci
 
 node dist/cli.js place 275051
@@ -31,7 +31,7 @@ npm pack --ignore-scripts
 Then run these commands in the other project. Replace the archive path with its actual location:
 
 ```sh
-npm install --ignore-scripts /path/to/park4night-api/park4night-api-0.2.0.tgz
+npm install --ignore-scripts /path/to/park4night-unofficial/park4night-unofficial-0.2.0.tgz
 npx park4night --help
 ```
 
@@ -65,13 +65,13 @@ The defaults are vault `Agent`, item `park4night.com`, and fields `username` and
 node dist/cli.js --vault --vault-name Travel --item 'My travel login' --username-field email --password-field password folders
 ```
 
-Field selectors accept an exact field ID or a unique field label. `--op-command /path/to/helper` selects a trusted wrapper instead of `op`. The library exposes the same settings through `readLogin({ vault, item, usernameField, passwordField, command })` from `park4night-api/vault`.
+Field selectors accept an exact field ID or a unique field label. `--op-command /path/to/helper` selects a trusted wrapper instead of `op`. The library exposes the same settings through `readLogin({ vault, item, usernameField, passwordField, command })` from `park4night-unofficial/vault`.
 
 The item must contain both selected credential fields. The adapter calls the standard `op` command and captures its output in memory. Configure CLI access before use, or use environment-based login instead. No personal item IDs, credentials, or session values are stored in this repository.
 
 ## Use the client
 
-Save this as `example.mjs` in a cloned project and run `node example.mjs` after injecting the credentials. In another project, import from `park4night-api` instead:
+Save this as `example.mjs` in a cloned project and run `node example.mjs` after injecting the credentials. In another project, import from `park4night-unofficial` instead:
 
 ```ts
 import { Park4nightClient } from './dist/client.js';
@@ -223,7 +223,7 @@ When a cooldown exceeds `maxWaitMs`, the request fails with `RATE_LIMITED` and `
 These defaults are client settings, not a confirmed Park4night quota. Reaching the waiting-queue limit returns `QUEUE_FULL` without sending the request. Share one scheduler when several clients in the same process must use one rate limit and cooldown:
 
 ```ts
-import { Park4nightClient, RequestScheduler } from 'park4night-api';
+import { Park4nightClient, RequestScheduler } from 'park4night-unofficial';
 
 const scheduler = new RequestScheduler({ minIntervalMs: 1000, maxQueueSize: 100 });
 const first = new Park4nightClient({ scheduler });
@@ -301,7 +301,7 @@ For MCP clients that use an `mcpServers` configuration, point to your built chec
   "mcpServers": {
     "park4night": {
       "command": "node",
-      "args": ["/absolute/path/to/park4night-api/dist/mcp-cli.js"]
+      "args": ["/absolute/path/to/park4night-unofficial/dist/mcp-cli.js"]
     }
   }
 }
@@ -309,7 +309,7 @@ For MCP clients that use an `mcpServers` configuration, point to your built chec
 
 For saved places, append `--vault` and any required 1Password options to `args`, or inject the existing `PARK4NIGHT_USERNAME` and `PARK4NIGHT_PASSWORD` variables into the server process through your client's secret mechanism. Do not store their values in a committed MCP configuration. Credentials are loaded once at startup and are never accepted as tool arguments. Without credentials, public tools work and account tools return `AUTH_REQUIRED`.
 
-The server does not expose write tools or open a network port. Its stdout carries protocol messages only; startup errors go to stderr. MCP cancellation is passed to the HTTP client. The exported `createMcpServer(client)` factory from `park4night-api/mcp` accepts an existing authenticated client.
+The server does not expose write tools or open a network port. Its stdout carries protocol messages only; startup errors go to stderr. MCP cancellation is passed to the HTTP client. The exported `createMcpServer(client)` factory from `park4night-unofficial/mcp` accepts an existing authenticated client.
 
 ## Authentication and credential handling
 

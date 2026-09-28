@@ -31,13 +31,13 @@ test('tarball contains compiled files and license without source, tests, or loca
   assert.ok(paths.includes('dist/mcp-cli.js'));
   assert.ok(paths.includes('LICENSE'));
   assert.ok(paths.every(path => path.startsWith('dist/') || ['package.json', 'README.md', 'LICENSE'].includes(path)));
-  const pkg = JSON.parse(readFileSync(join(work, 'node_modules/park4night-api/package.json')));
+  const pkg = JSON.parse(readFileSync(join(work, 'node_modules/park4night-unofficial/package.json')));
   assert.equal(pkg.license, 'MIT');
   assert.equal(pkg.private, undefined);
 });
 
 test('installed package imports in plain Node and exposes executable CLI help', () => {
-  const source = "import { Park4nightClient, RequestScheduler } from 'park4night-api'; import { readLogin } from 'park4night-api/vault'; console.log(typeof Park4nightClient, typeof RequestScheduler, typeof readLogin);";
+  const source = "import { Park4nightClient, RequestScheduler } from 'park4night-unofficial'; import { readLogin } from 'park4night-unofficial/vault'; console.log(typeof Park4nightClient, typeof RequestScheduler, typeof readLogin);";
   assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', source], { cwd: work, encoding: 'utf8' }).trim(), 'function function function');
   const help = execFileSync(join(work, 'node_modules/.bin/park4night'), ['--help'], { cwd: work, encoding: 'utf8' });
   assert.match(help, /public-places/);
@@ -45,13 +45,13 @@ test('installed package imports in plain Node and exposes executable CLI help', 
 });
 
 test('installed declaration files type-check for a consuming application', () => {
-  writeFileSync(join(work, 'consumer.mts'), "import { Park4nightClient, RequestScheduler, type Review, type Photo } from 'park4night-api'; const client = new Park4nightClient({ scheduler: new RequestScheduler() }); const reviews: Review[] = await client.reviews(1); const photos: Photo[] = (await client.place(1)).photos; const numeric: number | null = reviews[0]?.rating ?? null; void photos; void numeric;");
+  writeFileSync(join(work, 'consumer.mts'), "import { Park4nightClient, RequestScheduler, type Review, type Photo } from 'park4night-unofficial'; const client = new Park4nightClient({ scheduler: new RequestScheduler() }); const reviews: Review[] = await client.reviews(1); const photos: Photo[] = (await client.place(1)).photos; const numeric: number | null = reviews[0]?.rating ?? null; void photos; void numeric;");
   execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--skipLibCheck', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2023', '--strict', 'consumer.mts'], { cwd: work, stdio: ['ignore', 'pipe', 'pipe'] });
 });
 
 test('installed MCP executable completes stdio handshake and tool calls', async () => {
   const preload = 'data:text/javascript,' + encodeURIComponent("globalThis.fetch = async () => new Response(JSON.stringify({status:'OK',lieux:[{id:'1',latitude:'0',longitude:'0',name:'Fixture'}]}));");
-  const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', preload, join(work, 'node_modules/park4night-api/dist/mcp-cli.js')], cwd: work, env: {}, stderr: 'pipe' });
+  const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', preload, join(work, 'node_modules/park4night-unofficial/dist/mcp-cli.js')], cwd: work, env: {}, stderr: 'pipe' });
   let stderr = '';
   transport.stderr?.on('data', chunk => { stderr += chunk; });
   const client = new Client({ name: 'package-test', version: '1.0.0' });

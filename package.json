@@ -1,5 +1,5 @@
 {
-  "name": "park4night-api",
+  "name": "park4night-unofficial",
   "version": "0.2.0",
   "type": "module",
   "engines": {
@@ -50,6 +50,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/marijnbent/park4night-api.git"
+    "url": "git+https://github.com/marijnbent/park4night-unofficial.git"
   }
 }
