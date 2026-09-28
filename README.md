@@ -22,14 +22,22 @@ node dist/cli.js search 52.37 4.9 20
 
 `npm ci` builds the JavaScript and declaration files. These commands use public reads and do not require credentials. Output is JSON. Use `node src/cli.ts help` for all commands.
 
-To install the client into another Node.js project directly from GitHub:
+To install the client into another Node.js project, create a package archive after `npm ci`:
 
 ```sh
-npm install github:marijnbent/park4night-api
+npm pack --ignore-scripts
+```
+
+Then run these commands in the other project. Replace the archive path with its actual location:
+
+```sh
+npm install --ignore-scripts /path/to/park4night-api/park4night-api-0.2.0.tgz
 npx park4night --help
 ```
 
-The installed package exports compiled JavaScript and TypeScript declarations. It is not published to the npm registry. Source development still works with `node src/cli.ts`.
+The archive contains compiled JavaScript and TypeScript declarations. Installation does not need build scripts. This package is not published to the npm registry. Source development still works with `node src/cli.ts`.
+
+Direct GitHub installation can fail with `EALLOWSCRIPTS` when npm forwards a user or global script policy to its internal build process. This is tracked in [npm/cli#9783](https://github.com/npm/cli/issues/9783). The archive method above avoids that Git dependency preparation step.
 
 For authenticated commands, inject `PARK4NIGHT_USERNAME` and `PARK4NIGHT_PASSWORD` into the process environment through your secret manager:
 
