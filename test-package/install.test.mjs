@@ -16,7 +16,7 @@ try {
   const packed = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', work], { cwd: root, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }))[0];
   archive = packed;
   writeFileSync(join(work, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
-  execFileSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', join(work, packed.filename)], { cwd: work, env: npmEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+  execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(work, packed.filename)], { cwd: work, env: npmEnv, stdio: ['ignore', 'pipe', 'pipe'] });
 } catch (error) {
   rmSync(work, { recursive: true, force: true });
   throw error;

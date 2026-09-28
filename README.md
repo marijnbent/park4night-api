@@ -326,7 +326,7 @@ npm test
 npm run test:package
 ```
 
-The tests cover API payloads, runtime validation, login/logout races, cancellation, queue limits, shared cooldowns, credential configuration, typed responses, public user reads, and MCP handshake and tool calls. Package tests build a tarball, install it into a clean consumer, import the compiled package, type-check declarations, run the CLI, and communicate with the installed MCP server over stdio. Automated tests use simulated responses and do not require credentials or call Park4night. The package test installs dependencies from the npm cache populated by `npm ci`. GitHub Actions runs checks and package tests on Node.js 24 and 26.
+The tests cover API payloads, runtime validation, login/logout races, cancellation, queue limits, shared cooldowns, credential configuration, typed responses, public user reads, and MCP handshake and tool calls. Package tests build a tarball, install it into a clean consumer, import the compiled package, type-check declarations, run the CLI, and communicate with the installed MCP server over stdio. Automated tests use simulated responses and do not require credentials or call Park4night. The package test needs registry access to install dependencies into a clean consumer project. GitHub Actions runs checks and package tests on Node.js 24 and 26.
 
 Version 0.2.0 verification on 2026-09-28 passed 53 unit/protocol tests and four clean-install tests. Live checks confirmed native login, normalized photos and reviews, saved-place reads, all public user-place modes, and an authenticated MCP stdio handshake and saved-place tool call. No live writes were made in this verification.
 
