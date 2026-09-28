@@ -1,0 +1,20 @@
+{
+  "name": "park4night-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": "./src/client.ts",
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "check": "tsc --noEmit",
+    "api": "node src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  },
+  "description": "Direct Park4night API client with native authentication, travel queries, bookmarks, and rate limits."
+}
